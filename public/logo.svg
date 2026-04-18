@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="pulse-grad" x1="0" y1="0.5" x2="1" y2="0.5">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.3"/>
+      <stop offset="30%" stop-color="#10b981"/>
+      <stop offset="70%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#34d399" stop-opacity="0.3"/>
+    </linearGradient>
+    <filter id="glow-filter">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="#0a0a0f"/>
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="#1f1f2e" stroke-width="2"/>
+
+  <!-- Subtle inner glow -->
+  <rect x="40" y="40" width="432" height="432" rx="80" fill="url(#glow)" opacity="0.03"/>
+
+  <!-- Ticket shape - left side -->
+  <path d="M136 128 h100 v256 h-100 a16 16 0 0 1 -16 -16 v-72 a20 20 0 0 0 0 -40 v-8 a20 20 0 0 0 0 -40 v-64 a16 16 0 0 1 16 -16z" fill="#16161f" stroke="#2a2a3d" stroke-width="1.5"/>
+
+  <!-- Ticket shape - right side -->
+  <path d="M252 128 h124 a16 16 0 0 1 16 16 v64 a20 20 0 0 0 0 40 v8 a20 20 0 0 0 0 40 v72 a16 16 0 0 1 -16 16 h-124 v-256z" fill="#16161f" stroke="#2a2a3d" stroke-width="1.5"/>
+
+  <!-- Dashed perforation line -->
+  <line x1="252" y1="140" x2="252" y2="372" stroke="#2a2a3d" stroke-width="1.5" stroke-dasharray="6 4"/>
+
+  <!-- Bet lines on left ticket -->
+  <rect x="148" y="164" width="80" height="6" rx="3" fill="#2a2a3d"/>
+  <rect x="148" y="186" width="60" height="6" rx="3" fill="#2a2a3d"/>
+  <rect x="148" y="208" width="72" height="6" rx="3" fill="#2a2a3d"/>
+
+  <!-- Check marks (won legs) -->
+  <path d="M148 244 l5 5 l10 -10" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="170" y="240" width="56" height="6" rx="3" fill="#10b981" opacity="0.4"/>
+
+  <path d="M148 266 l5 5 l10 -10" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="170" y="262" width="48" height="6" rx="3" fill="#10b981" opacity="0.4"/>
+
+  <path d="M148 288 l5 5 l10 -10" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <rect x="170" y="284" width="52" height="6" rx="3" fill="#10b981" opacity="0.4"/>
+
+  <!-- Payout area on right side -->
+  <text x="320" y="200" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="14" font-weight="600" fill="#55556a" letter-spacing="1">PAYOUT</text>
+  <text x="320" y="240" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="32" font-weight="700" fill="url(#glow)">$$$</text>
+
+  <!-- Pulse line cutting across the ticket -->
+  <polyline
+    points="80,340 160,340 185,340 200,290 220,380 240,310 260,350 280,330 300,340 340,340 432,340"
+    stroke="url(#pulse-grad)"
+    stroke-width="4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+    filter="url(#glow-filter)"
+  />
+
+  <!-- Small pulse dot -->
+  <circle cx="432" cy="340" r="5" fill="#34d399">
+    <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- PP monogram at bottom -->
+  <text x="256" y="430" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="28" font-weight="800" fill="#10b981" letter-spacing="4" opacity="0.6">PARLAYPULSE</text>
+</svg>

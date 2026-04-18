@@ -15,7 +15,6 @@ export function Dashboard() {
   const { events } = useEvents(sportFilter ?? undefined);
   const { news, loading: newsLoading } = useNews(sportFilter ?? undefined);
   const [selectedPicks, setSelectedPicks] = useState<Pick[]>([]);
-  const [includeProps, setIncludeProps] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
 
@@ -35,15 +34,6 @@ export function Dashboard() {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <SportFilter active={sportFilter} onChange={setSportFilter} />
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={includeProps}
-            onChange={e => setIncludeProps(e.target.checked)}
-            className="rounded border-dk-border text-dk-green bg-dk-card w-3 h-3"
-          />
-          <span className="text-[11px] text-dk-textMuted">Include props</span>
-        </label>
       </div>
 
       <ParlayBuilder
