@@ -59,7 +59,7 @@ export function Dashboard() {
                   key={s}
                   onClick={() => handleAnalyze(s)}
                   disabled={analyzing}
-                  className="text-[11px] px-3 py-1.5 rounded-md bg-dk-card text-dk-textSecondary font-medium hover:bg-dk-cardHover hover:text-dk-text disabled:opacity-40 transition-all"
+                  className="text-[11px] px-3.5 py-1.5 rounded-md bg-dk-accent/10 text-dk-accent font-medium hover:bg-dk-accent/20 disabled:opacity-40 transition-all"
                 >
                   {analyzing ? '...' : `Analyze ${s}`}
                 </button>
