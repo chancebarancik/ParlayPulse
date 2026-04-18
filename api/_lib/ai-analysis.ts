@@ -1,10 +1,19 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { sql } from './db.js';
 import { syncEvents, type EnrichedEvent, type Sport, SPORTS } from './sports-data.js';
 import { gatherInsiderIntel, formatIntelForAnalysis } from './insider-intel.js';
 import { gatherExternalData } from './external-data.js';
 
-const client = new Anthropic();
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+async function generateJSON(prompt: string, maxTokens = 4000): Promise<string> {
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { maxOutputTokens: maxTokens, temperature: 0.3 },
+  });
+  return result.response.text();
+}
 
 export type Strategy = 'safe' | 'balanced' | 'aggressive';
 
@@ -169,13 +178,7 @@ CRITICAL: Your confidence scores must be CALIBRATED. If you say 80% confidence, 
 
 Respond with ONLY a valid JSON array. No markdown fences, no explanation outside the JSON.`;
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 4000,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const text = response.content[0].type === 'text' ? response.content[0].text : '';
+  const text = await generateJSON(prompt, 4000);
   const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   const picks: AnalyzedPick[] = JSON.parse(cleaned);
 
@@ -318,13 +321,7 @@ Respond with ONLY a valid JSON object:
   "reasoning": "2-3 sentences on why these legs work together and the strategy behind it"
 }`;
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1500,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const text = response.content[0].type === 'text' ? response.content[0].text : '';
+  const text = await generateJSON(prompt, 1500);
   const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   const parlay = JSON.parse(cleaned);
 
@@ -430,13 +427,7 @@ Respond with ONLY a valid JSON array:
 
 Only include entries with sample_size >= 5. If not enough data, return an empty array [].`;
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2000,
-    messages: [{ role: 'user', content: prompt }],
-  });
-
-  const text = response.content[0].type === 'text' ? response.content[0].text : '';
+  const text = await generateJSON(prompt, 2000);
   const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   const insights = JSON.parse(cleaned);
 

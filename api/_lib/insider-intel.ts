@@ -1,7 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { Sport } from './sports-data.js';
 
-const client = new Anthropic();
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export interface InsiderIntel {
   sport: Sport;
@@ -94,13 +94,13 @@ Respond with ONLY valid JSON:
   "insider_notes": ["Note 1", "Note 2"]
 }`;
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1500,
-    messages: [{ role: 'user', content: prompt }],
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { maxOutputTokens: 1500, temperature: 0.3 },
   });
 
-  const text = response.content[0].type === 'text' ? response.content[0].text : '';
+  const text = result.response.text();
   const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   return JSON.parse(cleaned);
 }
