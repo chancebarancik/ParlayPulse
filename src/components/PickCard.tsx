@@ -22,6 +22,9 @@ interface PickCardProps {
 }
 
 export function PickCard({ pick, selected, onToggle }: PickCardProps) {
+  const confidence = Number(pick.confidence);
+  const edge = pick.edge != null ? Number(pick.edge) : null;
+
   return (
     <button
       onClick={() => onToggle?.(pick)}
@@ -50,14 +53,14 @@ export function PickCard({ pick, selected, onToggle }: PickCardProps) {
           {pick.odds && (
             <span className="text-sm font-mono font-semibold text-dk-text">{pick.odds}</span>
           )}
-          <span className={`text-[11px] font-mono ${confidenceColor(pick.confidence)}`}>
-            {pick.confidence.toFixed(0)}%
+          <span className={`text-[11px] font-mono ${confidenceColor(confidence)}`}>
+            {confidence.toFixed(0)}%
           </span>
-          {pick.edge != null && (
+          {edge != null && (
             <span className={`text-[11px] font-mono ${
-              pick.edge > 0 ? 'text-dk-green' : pick.edge < -3 ? 'text-dk-red' : 'text-dk-textMuted'
+              edge > 0 ? 'text-dk-green' : edge < -3 ? 'text-dk-red' : 'text-dk-textMuted'
             }`}>
-              {pick.edge > 0 ? '+' : ''}{pick.edge.toFixed(1)}%
+              {edge > 0 ? '+' : ''}{edge.toFixed(1)}%
             </span>
           )}
         </div>

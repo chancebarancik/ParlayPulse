@@ -63,8 +63,8 @@ export function ParlayBuilder({ selectedPicks, onRemovePick, sportFilter }: Parl
                 </div>
                 <div className="flex items-center gap-2.5 shrink-0">
                   {pick.edge != null && (
-                    <span className={`text-[11px] font-mono ${pick.edge > 0 ? 'text-dk-green' : 'text-dk-red'}`}>
-                      {pick.edge > 0 ? '+' : ''}{pick.edge.toFixed(1)}%
+                    <span className={`text-[11px] font-mono ${Number(pick.edge) > 0 ? 'text-dk-green' : 'text-dk-red'}`}>
+                      {Number(pick.edge) > 0 ? '+' : ''}{Number(pick.edge).toFixed(1)}%
                     </span>
                   )}
                   <span className="text-[12px] font-mono font-semibold text-dk-text">{pick.odds}</span>
@@ -155,14 +155,14 @@ export function ParlayBuilder({ selectedPicks, onRemovePick, sportFilter }: Parl
               <div className="flex items-center gap-2.5">
                 <span className="text-[13px] font-mono font-semibold text-dk-text">{parlay.combined_odds}</span>
                 <span className="text-[11px] font-mono text-dk-green">
-                  {parlay.confidence_avg.toFixed(0)}%
+                  {Number(parlay.confidence_avg).toFixed(0)}%
                 </span>
               </div>
             </div>
             <div className="p-3.5 space-y-2">
               {parlay.combined_implied_prob != null && (
                 <p className="text-[11px] text-dk-textMuted">
-                  Hit probability: {parlay.combined_implied_prob.toFixed(1)}%
+                  Hit probability: {Number(parlay.combined_implied_prob).toFixed(1)}%
                 </p>
               )}
               <p className="text-[12px] text-dk-textSecondary leading-relaxed">{parlay.reasoning}</p>
