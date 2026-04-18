@@ -35,7 +35,7 @@ export function usePicks(sport?: Sport) {
       });
       if (!res.ok) throw new Error('Analysis failed');
       const data = await res.json();
-      setPicks(prev => [...data.picks, ...prev]);
+      setPicks(data.picks);
       return data;
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Unknown error');

@@ -28,6 +28,7 @@ export function Dashboard() {
   }, []);
 
   const handleAnalyze = async (sport: Sport) => {
+    setSportFilter(sport);
     setAnalyzing(true);
     await refreshEvents();
     await analyzeSport(sport, includeProps);
