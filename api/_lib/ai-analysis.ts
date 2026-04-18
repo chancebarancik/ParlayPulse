@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { sql } from './db.js';
 import type { EnrichedEvent, Sport } from './sports-data.js';
 import { gatherInsiderIntel, formatIntelForAnalysis } from './insider-intel.js';
+import { gatherExternalData } from './external-data.js';
 
 const client = new Anthropic();
 
@@ -108,9 +109,10 @@ export async function analyzeEvent(event: EnrichedEvent, includeProps = false): 
     ? event.injuries.map(i => `${i.player} (${i.team}): ${i.status} - ${i.details}`).join('\n')
     : 'No injury data available';
 
-  const [historicalPerf, insiderIntel] = await Promise.all([
+  const [historicalPerf, insiderIntel, externalData] = await Promise.all([
     getHistoricalPerformance(event.sport),
     gatherInsiderIntel(event.sport, event.title, event.odds_data).catch(() => null),
+    gatherExternalData(event.sport, event.title, event.venue, event.commence_time).catch(() => ''),
   ]);
 
   const intelReport = insiderIntel ? formatIntelForAnalysis(insiderIntel) : 'No insider intelligence available.';
@@ -137,6 +139,8 @@ ${injuriesStr}
 
 ## Additional Stats
 ${event.stats ? JSON.stringify(event.stats, null, 2) : 'No additional stats available'}
+
+${externalData}
 
 ${historicalPerf}
 

@@ -17,6 +17,7 @@ export function Dashboard() {
   const [selectedPicks, setSelectedPicks] = useState<Pick[]>([]);
   const [includeProps, setIncludeProps] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
 
   const togglePick = useCallback((pick: Pick) => {
     setSelectedPicks(prev =>
@@ -31,7 +32,7 @@ export function Dashboard() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <SportFilter active={sportFilter} onChange={setSportFilter} />
         <label className="flex items-center gap-1.5 cursor-pointer">
@@ -45,66 +46,84 @@ export function Dashboard() {
         </label>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
-          <ParlayBuilder
-            selectedPicks={selectedPicks}
-            onRemovePick={removePick}
-            sportFilter={sportFilter}
-          />
+      <ParlayBuilder
+        selectedPicks={selectedPicks}
+        onRemovePick={removePick}
+        sportFilter={sportFilter}
+      />
 
-          {picks.length > 0 && (
-            <>
-              <h2 className="text-sm font-semibold text-dk-text">ParlayPulse Picks</h2>
-              <div className="space-y-1">
-                {picks.map(pick => (
-                  <PickCard
-                    key={pick.id}
-                    pick={pick}
-                    selected={selectedPicks.some(p => p.id === pick.id)}
-                    onToggle={togglePick}
-                  />
-                ))}
-              </div>
-            </>
-          )}
+      {picks.length > 0 && (
+        <div className="space-y-1">
+          <h2 className="text-sm font-semibold text-dk-text mb-2">ParlayPulse Picks</h2>
+          {picks.map(pick => (
+            <PickCard
+              key={pick.id}
+              pick={pick}
+              selected={selectedPicks.some(p => p.id === pick.id)}
+              onToggle={togglePick}
+            />
+          ))}
+        </div>
+      )}
 
-          {picksLoading && picks.length === 0 && (
-            <div className="text-center py-8 text-dk-textMuted text-[12px]">Loading picks...</div>
-          )}
+      {picksLoading && picks.length === 0 && (
+        <div className="text-center py-8 text-dk-textMuted text-[12px]">Loading picks...</div>
+      )}
 
-          {events.length > 0 && (
-            <div>
-              <button
-                onClick={() => setEventsOpen(prev => !prev)}
-                className="flex items-center gap-2 w-full text-left py-2"
-              >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  className={`text-dk-textMuted transition-transform ${eventsOpen ? 'rotate-90' : ''}`}
-                >
-                  <path d="M3 1l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <span className="text-sm font-semibold text-dk-text">Upcoming Events</span>
-                <span className="text-[11px] text-dk-textMuted">{events.length}</span>
-              </button>
-              {eventsOpen && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-2">
-                  {events.slice(0, 10).map(event => (
-                    <EventCard key={event.id} event={event} />
-                  ))}
-                </div>
-              )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="rounded-lg bg-dk-surface border border-dk-border/50 overflow-hidden">
+          <button
+            onClick={() => setEventsOpen(prev => !prev)}
+            className="flex items-center gap-2 w-full text-left px-4 py-3"
+          >
+            <svg
+              width="8"
+              height="8"
+              viewBox="0 0 8 8"
+              fill="none"
+              className={`text-dk-textMuted transition-transform ${eventsOpen ? 'rotate-90' : ''}`}
+            >
+              <path d="M2 1l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="text-[12px] font-semibold text-dk-text">Upcoming Events</span>
+            {events.length > 0 && (
+              <span className="text-[10px] text-dk-textMuted ml-auto">{events.length}</span>
+            )}
+          </button>
+          {eventsOpen && events.length > 0 && (
+            <div className="px-3 pb-3 space-y-1">
+              {events.slice(0, 10).map(event => (
+                <EventCard key={event.id} event={event} />
+              ))}
             </div>
           )}
-
-          <NewsFeed news={news} loading={newsLoading} />
         </div>
 
-        <div className="lg:col-span-1 hidden lg:block" />
+        <div className="rounded-lg bg-dk-surface border border-dk-border/50 overflow-hidden">
+          <button
+            onClick={() => setNewsOpen(prev => !prev)}
+            className="flex items-center gap-2 w-full text-left px-4 py-3"
+          >
+            <svg
+              width="8"
+              height="8"
+              viewBox="0 0 8 8"
+              fill="none"
+              className={`text-dk-textMuted transition-transform ${newsOpen ? 'rotate-90' : ''}`}
+            >
+              <path d="M2 1l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="text-[12px] font-semibold text-dk-text">Sports Intel</span>
+            {news.length > 0 && (
+              <span className="text-[10px] text-dk-textMuted ml-auto">{news.length}</span>
+            )}
+          </button>
+          {newsOpen && (
+            <div className="px-3 pb-3">
+              <NewsFeed news={news} loading={newsLoading} inline />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
