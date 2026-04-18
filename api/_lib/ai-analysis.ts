@@ -261,17 +261,27 @@ export async function generateParlay(
 
   if (picks.length < legCount) {
     const sportsToAnalyze = sport ? [sport] : SPORTS;
+    const errors: string[] = [];
     for (const s of sportsToAnalyze) {
-      const events = await syncEvents(s);
-      for (const event of events.slice(0, 4)) {
-        await analyzeEvent(event, includeProps).catch(() => []);
+      try {
+        const events = await syncEvents(s);
+        for (const event of events.slice(0, 4)) {
+          try {
+            await analyzeEvent(event, includeProps);
+          } catch (e: unknown) {
+            errors.push(`analyzeEvent(${event.title}): ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
+      } catch (e: unknown) {
+        errors.push(`syncEvents(${s}): ${e instanceof Error ? e.message : String(e)}`);
       }
     }
     picks = await getTopPicks(sport, undefined, 40);
-  }
 
-  if (picks.length < legCount) {
-    throw new Error(`Not enough picks available. Found ${picks.length}, need ${legCount}. There may be no upcoming events for this sport.`);
+    if (picks.length < legCount) {
+      const errDetail = errors.length > 0 ? ` Errors: ${errors.join('; ')}` : '';
+      throw new Error(`Not enough picks (found ${picks.length}, need ${legCount}).${errDetail}`);
+    }
   }
 
   const historicalPerf = await getHistoricalPerformance(sport);
