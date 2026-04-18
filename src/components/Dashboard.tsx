@@ -52,7 +52,7 @@ export function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h2 className="text-sm font-semibold text-dk-text">AI Picks</h2>
+            <h2 className="text-sm font-semibold text-dk-text">ParlayPulse Picks</h2>
             <div className="flex gap-1.5">
               {(['UFC', 'MLB', 'NFL'] as Sport[]).map(s => (
                 <button
