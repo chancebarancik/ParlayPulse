@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Pick, Sport } from '../lib/types';
+import { SPORTS } from '../lib/types';
 import { usePicks } from '../hooks/usePicks';
 import { useEvents } from '../hooks/useEvents';
 import { SportFilter } from './SportFilter';
@@ -27,13 +28,22 @@ export function Dashboard() {
     setSelectedPicks(prev => prev.filter(p => p.id !== pick.id));
   }, []);
 
-  const handleAnalyze = async (sport: Sport) => {
-    setSportFilter(sport);
+  const handleAnalyze = async () => {
     setAnalyzing(true);
     await refreshEvents();
-    await analyzeSport(sport, includeProps);
+    if (sportFilter) {
+      await analyzeSport(sportFilter, includeProps);
+    } else {
+      for (const s of SPORTS) {
+        await analyzeSport(s, includeProps);
+      }
+    }
     setAnalyzing(false);
   };
+
+  const analyzeLabel = sportFilter
+    ? `Analyze ${sportFilter}`
+    : 'Analyze All Sports';
 
   return (
     <div className="space-y-6">
@@ -54,18 +64,13 @@ export function Dashboard() {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-sm font-semibold text-dk-text">ParlayPulse Picks</h2>
-            <div className="flex gap-1.5">
-              {(['UFC', 'MLB', 'NFL'] as Sport[]).map(s => (
-                <button
-                  key={s}
-                  onClick={() => handleAnalyze(s)}
-                  disabled={analyzing}
-                  className="text-[11px] px-3.5 py-1.5 rounded-md bg-dk-accent/10 text-dk-accent font-medium hover:bg-dk-accent/20 disabled:opacity-40 transition-all"
-                >
-                  {analyzing ? '...' : `Analyze ${s}`}
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={handleAnalyze}
+              disabled={analyzing}
+              className="text-[11px] px-3.5 py-1.5 rounded-md bg-dk-accent/10 text-dk-accent font-medium hover:bg-dk-accent/20 disabled:opacity-40 transition-all"
+            >
+              {analyzing ? 'Analyzing...' : analyzeLabel}
+            </button>
           </div>
 
           {picksLoading && picks.length === 0 ? (
@@ -74,7 +79,7 @@ export function Dashboard() {
             <div className="text-center py-16">
               <p className="text-dk-textSecondary text-[13px] mb-1">No picks yet</p>
               <p className="text-dk-textMuted text-[11px]">
-                Analyze a sport to generate AI picks from live data
+                Select a sport and analyze to generate picks
               </p>
             </div>
           ) : (
