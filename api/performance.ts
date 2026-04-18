@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getPerformanceStats, getParlayHistory } from './_lib/ai-analysis';
-import type { Sport } from './_lib/sports-data';
-import { SPORTS } from './_lib/sports-data';
+import { getPerformanceStats, getParlayHistory } from './_lib/ai-analysis.js';
+import type { Sport } from './_lib/sports-data.js';
+import { SPORTS } from './_lib/sports-data.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {

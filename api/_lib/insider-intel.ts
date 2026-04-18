@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { Sport } from './sports-data';
+import type { Sport } from './sports-data.js';
 
 const client = new Anthropic();
 

@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { sql } from './db';
-import type { EnrichedEvent, Sport } from './sports-data';
-import { gatherInsiderIntel, formatIntelForAnalysis } from './insider-intel';
+import { sql } from './db.js';
+import type { EnrichedEvent, Sport } from './sports-data.js';
+import { gatherInsiderIntel, formatIntelForAnalysis } from './insider-intel.js';
 
 const client = new Anthropic();
 

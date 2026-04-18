@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getTopPicks, analyzeEvent } from './_lib/ai-analysis';
-import { syncEvents, type Sport, SPORTS } from './_lib/sports-data';
+import { getTopPicks, analyzeEvent } from './_lib/ai-analysis.js';
+import { syncEvents, type Sport, SPORTS } from './_lib/sports-data.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {

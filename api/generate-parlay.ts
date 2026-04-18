@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { generateParlay, type Strategy } from './_lib/ai-analysis';
-import type { Sport } from './_lib/sports-data';
-import { SPORTS } from './_lib/sports-data';
+import { generateParlay, type Strategy } from './_lib/ai-analysis.js';
+import type { Sport } from './_lib/sports-data.js';
+import { SPORTS } from './_lib/sports-data.js';
 
 const STRATEGIES: Strategy[] = ['safe', 'balanced', 'aggressive'];
 
