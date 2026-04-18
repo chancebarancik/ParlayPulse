@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    @apply bg-canvas text-ink antialiased;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .input {
+    @apply w-full px-3 py-2 border border-line rounded-lg text-[13px] bg-white text-ink outline-none focus:border-accent;
+  }
+}
