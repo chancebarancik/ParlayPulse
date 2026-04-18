@@ -5,13 +5,13 @@
 @layer base {
   html,
   body {
-    @apply bg-canvas text-ink antialiased;
+    @apply bg-dk-bg text-dk-text antialiased;
     -webkit-font-smoothing: antialiased;
   }
 }
 
 @layer components {
   .input {
-    @apply w-full px-3 py-2 border border-line rounded-lg text-[13px] bg-white text-ink outline-none focus:border-accent;
+    @apply w-full px-3 py-2 border border-dk-border rounded-lg text-sm bg-dk-surface text-dk-text outline-none focus:border-dk-green;
   }
 }

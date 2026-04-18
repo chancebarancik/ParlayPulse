@@ -6,36 +6,36 @@ interface SportFilterProps {
   onChange: (sport: Sport | null) => void;
 }
 
-const SPORT_ICONS: Record<Sport, string> = {
-  UFC: '\u{1F94A}',
-  MLB: '\u{26BE}',
-  NFL: '\u{1F3C8}',
+const SPORT_LABELS: Record<Sport, string> = {
+  UFC: 'UFC',
+  MLB: 'MLB',
+  NFL: 'NFL',
 };
 
 export function SportFilter({ active, onChange }: SportFilterProps) {
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-1.5">
       <button
         onClick={() => onChange(null)}
-        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+        className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
           active === null
-            ? 'bg-gray-900 text-white'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            ? 'bg-dk-green text-white'
+            : 'bg-dk-card text-dk-textSecondary hover:bg-dk-cardHover hover:text-white'
         }`}
       >
-        All
+        All Sports
       </button>
       {SPORTS.map(sport => (
         <button
           key={sport}
           onClick={() => onChange(sport)}
-          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+          className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
             active === sport
-              ? 'bg-gray-900 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              ? 'bg-dk-green text-white'
+              : 'bg-dk-card text-dk-textSecondary hover:bg-dk-cardHover hover:text-white'
           }`}
         >
-          {SPORT_ICONS[sport]} {sport}
+          {SPORT_LABELS[sport]}
         </button>
       ))}
     </div>

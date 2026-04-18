@@ -18,17 +18,17 @@ export function EventCard({ event, onClick }: EventCardProps) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left p-4 rounded-xl border border-gray-100 bg-white hover:border-gray-200 transition-all"
+      className="w-full text-left p-3 rounded-lg border border-dk-border bg-dk-card hover:bg-dk-cardHover transition-all"
     >
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 uppercase">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-dk-green/15 text-dk-green uppercase tracking-wider">
           {event.sport}
         </span>
-        <span className="text-xs text-gray-400">{timeStr}</span>
+        <span className="text-[10px] text-dk-textMuted">{timeStr}</span>
       </div>
-      <p className="font-semibold text-gray-900 text-sm">{event.title}</p>
+      <p className="font-semibold text-white text-sm">{event.title}</p>
       {event.venue && (
-        <p className="text-xs text-gray-500 mt-1">{event.venue}</p>
+        <p className="text-[10px] text-dk-textMuted mt-1">{event.venue}</p>
       )}
     </button>
   );

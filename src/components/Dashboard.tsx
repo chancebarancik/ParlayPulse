@@ -43,23 +43,23 @@ export function Dashboard() {
             type="checkbox"
             checked={includeProps}
             onChange={e => setIncludeProps(e.target.checked)}
-            className="rounded border-gray-300 text-indigo-600 w-3.5 h-3.5"
+            className="rounded border-dk-border text-dk-green bg-dk-card w-3.5 h-3.5"
           />
-          <span className="text-xs text-gray-600">Include Props in Analysis</span>
+          <span className="text-xs text-dk-textSecondary">Include Props in Analysis</span>
         </label>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h2 className="font-bold text-gray-900">AI Picks</h2>
+            <h2 className="font-bold text-white">AI Picks</h2>
             <div className="flex gap-2">
               {(['UFC', 'MLB', 'NFL'] as Sport[]).map(s => (
                 <button
                   key={s}
                   onClick={() => handleAnalyze(s)}
                   disabled={analyzing}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                  className="text-xs px-3 py-1.5 rounded-lg bg-dk-green text-white font-bold uppercase tracking-wide hover:bg-dk-greenLight disabled:opacity-50 transition-colors"
                 >
                   {analyzing ? '...' : `Analyze ${s}`}
                 </button>
@@ -68,11 +68,11 @@ export function Dashboard() {
           </div>
 
           {picksLoading && picks.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 text-sm">Loading picks...</div>
+            <div className="text-center py-12 text-dk-textMuted text-sm">Loading picks...</div>
           ) : picks.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-              <p className="text-gray-500 text-sm mb-2">No picks yet</p>
-              <p className="text-gray-400 text-xs">
+            <div className="text-center py-12 bg-dk-surface rounded-xl border border-dk-border">
+              <p className="text-dk-textSecondary text-sm mb-2">No picks yet</p>
+              <p className="text-dk-textMuted text-xs">
                 Click "Analyze" for a sport to generate AI picks from live data
               </p>
             </div>
@@ -91,7 +91,7 @@ export function Dashboard() {
 
           {events.length > 0 && (
             <>
-              <h2 className="font-bold text-gray-900 mt-6">Upcoming Events</h2>
+              <h2 className="font-bold text-white mt-6">Upcoming Events</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {events.slice(0, 10).map(event => (
                   <EventCard key={event.id} event={event} />
