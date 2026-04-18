@@ -1,5 +1,5 @@
 import { sql } from './db';
-import { fetchESPNEvents, fetchESPNInjuries, type ParsedEvent, type ESPNOdds } from './espn';
+import { fetchESPNEvents, fetchESPNInjuries, type ESPNOdds } from './espn';
 
 export type Sport = 'UFC' | 'MLB' | 'NFL';
 export const SPORTS: Sport[] = ['UFC', 'MLB', 'NFL'];

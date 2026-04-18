@@ -67,8 +67,8 @@ export async function fetchESPNEvents(sport: 'UFC' | 'MLB' | 'NFL'): Promise<Par
   const path = SPORT_PATHS[sport];
   const res = await fetch(`${ESPN_BASE}/${path}/scoreboard`);
   if (!res.ok) throw new Error(`ESPN scoreboard error: ${res.status}`);
-  const data = await res.json();
-  const events: ESPNEvent[] = data.events ?? [];
+  const data = await res.json() as { events?: ESPNEvent[] };
+  const events = data.events ?? [];
 
   return events
     .filter(e => e.status.type.state === 'pre')
@@ -100,7 +100,16 @@ export async function fetchESPNInjuries(sport: 'UFC' | 'MLB' | 'NFL'): Promise<E
   const path = SPORT_PATHS[sport];
   const res = await fetch(`${ESPN_BASE}/${path}/injuries`);
   if (!res.ok) return [];
-  const data = await res.json();
+  interface InjuryTeam {
+    team?: { displayName?: string };
+    injuries?: Array<{
+      athlete?: { displayName?: string; position?: { abbreviation?: string } };
+      status?: string;
+      longComment?: string;
+      shortComment?: string;
+    }>;
+  }
+  const data = await res.json() as { items?: InjuryTeam[] };
   const injuries: ESPNInjury[] = [];
   for (const team of data.items ?? []) {
     const teamName = team.team?.displayName ?? 'Unknown';

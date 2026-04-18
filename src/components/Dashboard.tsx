@@ -10,7 +10,7 @@ import { ParlayBuilder } from './ParlayBuilder';
 export function Dashboard() {
   const [sportFilter, setSportFilter] = useState<Sport | null>(null);
   const { picks, loading: picksLoading, analyzeSport } = usePicks(sportFilter ?? undefined);
-  const { events, loading: eventsLoading, refresh: refreshEvents } = useEvents(sportFilter ?? undefined);
+  const { events, refresh: refreshEvents } = useEvents(sportFilter ?? undefined);
   const [selectedPicks, setSelectedPicks] = useState<Pick[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [includeProps, setIncludeProps] = useState(false);
