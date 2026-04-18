@@ -1,19 +1,20 @@
 import { useState, useCallback } from 'react';
 import type { Pick, Sport } from '../lib/types';
-import { SPORTS } from '../lib/types';
 import { usePicks } from '../hooks/usePicks';
 import { useEvents } from '../hooks/useEvents';
+import { useNews } from '../hooks/useNews';
 import { SportFilter } from './SportFilter';
 import { PickCard } from './PickCard';
 import { EventCard } from './EventCard';
 import { ParlayBuilder } from './ParlayBuilder';
+import { NewsFeed } from './NewsFeed';
 
 export function Dashboard() {
   const [sportFilter, setSportFilter] = useState<Sport | null>(null);
-  const { picks, loading: picksLoading, analyzeSport } = usePicks(sportFilter ?? undefined);
-  const { events, refresh: refreshEvents } = useEvents(sportFilter ?? undefined);
+  const { picks, loading: picksLoading } = usePicks(sportFilter ?? undefined);
+  const { events } = useEvents(sportFilter ?? undefined);
+  const { news, loading: newsLoading } = useNews(sportFilter ?? undefined);
   const [selectedPicks, setSelectedPicks] = useState<Pick[]>([]);
-  const [analyzing, setAnalyzing] = useState(false);
   const [includeProps, setIncludeProps] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
 
@@ -28,23 +29,6 @@ export function Dashboard() {
   const removePick = useCallback((pick: Pick) => {
     setSelectedPicks(prev => prev.filter(p => p.id !== pick.id));
   }, []);
-
-  const handleAnalyze = async () => {
-    setAnalyzing(true);
-    await refreshEvents();
-    if (sportFilter) {
-      await analyzeSport(sportFilter, includeProps);
-    } else {
-      for (const s of SPORTS) {
-        await analyzeSport(s, includeProps);
-      }
-    }
-    setAnalyzing(false);
-  };
-
-  const analyzeLabel = sportFilter
-    ? `Analyze ${sportFilter}`
-    : 'Analyze All Sports';
 
   return (
     <div className="space-y-6">
@@ -69,37 +53,24 @@ export function Dashboard() {
             sportFilter={sportFilter}
           />
 
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <h2 className="text-sm font-semibold text-dk-text">ParlayPulse Picks</h2>
-            <button
-              onClick={handleAnalyze}
-              disabled={analyzing}
-              className="text-[11px] px-3.5 py-1.5 rounded-md bg-dk-accent/10 text-dk-accent font-medium hover:bg-dk-accent/20 disabled:opacity-40 transition-all"
-            >
-              {analyzing ? 'Analyzing...' : analyzeLabel}
-            </button>
-          </div>
+          {picks.length > 0 && (
+            <>
+              <h2 className="text-sm font-semibold text-dk-text">ParlayPulse Picks</h2>
+              <div className="space-y-1">
+                {picks.map(pick => (
+                  <PickCard
+                    key={pick.id}
+                    pick={pick}
+                    selected={selectedPicks.some(p => p.id === pick.id)}
+                    onToggle={togglePick}
+                  />
+                ))}
+              </div>
+            </>
+          )}
 
-          {picksLoading && picks.length === 0 ? (
-            <div className="text-center py-16 text-dk-textMuted text-[12px]">Loading picks...</div>
-          ) : picks.length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-dk-textSecondary text-[13px] mb-1">No picks yet</p>
-              <p className="text-dk-textMuted text-[11px]">
-                Select a sport and analyze to generate picks
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {picks.map(pick => (
-                <PickCard
-                  key={pick.id}
-                  pick={pick}
-                  selected={selectedPicks.some(p => p.id === pick.id)}
-                  onToggle={togglePick}
-                />
-              ))}
-            </div>
+          {picksLoading && picks.length === 0 && (
+            <div className="text-center py-8 text-dk-textMuted text-[12px]">Loading picks...</div>
           )}
 
           {events.length > 0 && (
@@ -129,6 +100,8 @@ export function Dashboard() {
               )}
             </div>
           )}
+
+          <NewsFeed news={news} loading={newsLoading} />
         </div>
 
         <div className="lg:col-span-1 hidden lg:block" />
