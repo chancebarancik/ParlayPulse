@@ -1,19 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { sql } from './db.js';
 import { syncEvents, type EnrichedEvent, type Sport, SPORTS } from './sports-data.js';
-import { gatherInsiderIntel, formatIntelForAnalysis } from './insider-intel.js';
-import { gatherExternalData } from './external-data.js';
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-
-async function generateJSON(prompt: string, maxTokens = 4000): Promise<string> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { maxOutputTokens: maxTokens, temperature: 0.3 },
-  });
-  return result.response.text();
-}
 
 export type Strategy = 'safe' | 'balanced' | 'aggressive';
 
@@ -29,160 +15,267 @@ interface AnalyzedPick {
   factors: Record<string, unknown>;
 }
 
-const PICK_TYPES_BY_SPORT: Record<Sport, string> = {
-  UFC: `Pick types to generate:
-GAME: moneyline (fight winner)
-METHOD: method of victory (KO/TKO, submission, decision)
-ROUND: over/under rounds, fight to go the distance, round betting
-PLAYER_PROP: significant strikes over/under, takedowns over/under, knockdowns`,
+// --- Math utilities ---
 
-  MLB: `Pick types to generate:
-GAME: moneyline (game winner), run line (spread), over/under total runs
-INNING: first 5 innings (F5) winner, F5 over/under
-TEAM_PROP: team total runs over/under, team to score first
-PLAYER_PROP: pitcher strikeouts over/under, batter hits over/under, home runs, RBIs, total bases`,
+function americanToImplied(odds: number): number {
+  if (odds < 0) return Math.abs(odds) / (Math.abs(odds) + 100) * 100;
+  return 100 / (odds + 100) * 100;
+}
 
-  NFL: `Pick types to generate:
-GAME: moneyline (game winner), point spread, over/under total points
-TEAM_PROP: team total points over/under, team to score first, total touchdowns
-PLAYER_PROP: passing yards over/under, rushing yards over/under, receiving yards over/under, anytime touchdown scorer, interceptions`,
-};
+function impliedToAmerican(prob: number): string {
+  if (prob >= 50) {
+    const odds = Math.round(-prob / (1 - prob / 100));
+    return String(odds);
+  }
+  const odds = Math.round((100 / (prob / 100)) - 100);
+  return `+${odds}`;
+}
 
-const PROBABILITY_FACTORS = `
-## Probability Factors to Consider (weight ALL of these):
-1. Historical head-to-head records
-2. Recent form (last 5-10 games/fights)
-3. Home/away or venue advantage
-4. Rest days and scheduling
-5. Injury report and player availability
-6. Weather conditions (outdoor sports)
-7. Coaching/corner matchups and tendencies
-8. Public betting percentages and line movement (sharp vs public money)
-9. Statistical matchup advantages (style, pace, efficiency)
-10. Situational spots (revenge games, letdown spots, trap games)
-11. Referee/judge tendencies (UFC)
-12. Park factors and ballpark dimensions (MLB)
-13. Division/conference standings impact
-14. Travel and time zone effects
-15. Historical performance in similar conditions`;
+function parseRecord(record: string | null): { wins: number; losses: number; pct: number } | null {
+  if (!record) return null;
+  const m = record.match(/(\d+)-(\d+)/);
+  if (!m) return null;
+  const wins = parseInt(m[1]);
+  const losses = parseInt(m[2]);
+  const total = wins + losses;
+  return { wins, losses, pct: total > 0 ? wins / total : 0.5 };
+}
 
-async function getHistoricalPerformance(sport?: Sport): Promise<string> {
-  const perfData = sport
-    ? await sql`
-        select pick_type, pick_category, result, count(*)::int as cnt,
-               round(avg(confidence_at_pick), 1) as avg_conf
-        from performance_log
-        where sport = ${sport}
-        group by pick_type, pick_category, result
-        order by pick_type, result
-      `
-    : await sql`
-        select sport, pick_type, pick_category, result, count(*)::int as cnt,
-               round(avg(confidence_at_pick), 1) as avg_conf
-        from performance_log
-        group by sport, pick_type, pick_category, result
-        order by sport, pick_type, result
-      `;
+function parseMoneyline(oddsData: Record<string, unknown> | null): { home: number; away: number } | null {
+  if (!oddsData) return null;
+  const ml = oddsData.moneyline as Record<string, unknown> | undefined;
+  if (!ml) return null;
+  const home = ml.home as Record<string, unknown> | undefined;
+  const away = ml.away as Record<string, unknown> | undefined;
+  const homeClose = home?.close as Record<string, unknown> | undefined;
+  const awayClose = away?.close as Record<string, unknown> | undefined;
+  const homeOdds = parseFloat(String(homeClose?.odds ?? '0'));
+  const awayOdds = parseFloat(String(awayClose?.odds ?? '0'));
+  if (!homeOdds || !awayOdds) return null;
+  return { home: homeOdds, away: awayOdds };
+}
 
-  if (perfData.length === 0) return 'No historical data yet — this is the first analysis.';
+// --- Statistical analysis engine ---
 
-  const insights = await sql`
-    select sport, pick_type, pick_category, insight, win_rate, sample_size, recommendation
-    from learning_insights
-    where sample_size >= 5
-    order by updated_at desc
-    limit 20
-  `;
+function analyzeMoneyline(event: EnrichedEvent): AnalyzedPick[] {
+  const picks: AnalyzedPick[] = [];
+  const odds = event.odds_data as Record<string, unknown> | null;
+  const ml = parseMoneyline(odds);
+  if (!ml || !event.home_team || !event.away_team) return picks;
 
-  let report = '## Historical Performance Data\n';
-  for (const row of perfData) {
-    report += `- ${row.sport ?? sport} ${row.pick_category}/${row.pick_type}: ${row.result}=${row.cnt} (avg confidence: ${row.avg_conf}%)\n`;
+  const homeImplied = americanToImplied(ml.home);
+  const awayImplied = americanToImplied(ml.away);
+
+  const homeRec = parseRecord(event.home_record);
+  const awayRec = parseRecord(event.away_record);
+
+  // Home advantage factor
+  const homeAdvantage = event.sport === 'NFL' ? 3.0 : event.sport === 'MLB' ? 2.0 : 0;
+
+  // Record-based adjustment
+  let recordAdj = 0;
+  if (homeRec && awayRec) {
+    recordAdj = (homeRec.pct - awayRec.pct) * 15;
   }
 
-  if (insights.length > 0) {
-    report += '\n## Learning Insights (from past results)\n';
-    for (const ins of insights) {
-      report += `- [${ins.sport} ${ins.pick_type}] ${ins.insight} (win rate: ${ins.win_rate}%, n=${ins.sample_size}). ${ins.recommendation}\n`;
+  // Injury impact
+  const homeInjuries = event.injuries.filter(i =>
+    i.team.toLowerCase().includes(event.home_team!.toLowerCase().split(' ').pop()!)
+  );
+  const awayInjuries = event.injuries.filter(i =>
+    i.team.toLowerCase().includes(event.away_team!.toLowerCase().split(' ').pop()!)
+  );
+  const injuryAdj = (awayInjuries.length - homeInjuries.length) * 1.5;
+
+  // Weather impact (outdoor sports)
+  let weatherAdj = 0;
+  let weatherNote = '';
+  if (event.weather && !event.indoor) {
+    if (event.weather.temperature < 35) {
+      weatherAdj = -2;
+      weatherNote = 'Cold weather may affect play. ';
+    }
+    if (event.weather.condition.toLowerCase().includes('rain')) {
+      weatherNote += 'Rain expected — favors unders. ';
+    }
+    if (event.weather.condition.toLowerCase().includes('wind')) {
+      weatherNote += 'Windy conditions. ';
     }
   }
 
-  return report;
+  const homeConfidence = Math.min(95, Math.max(15, homeImplied + homeAdvantage + recordAdj + injuryAdj + weatherAdj));
+  const awayConfidence = Math.min(95, Math.max(15, awayImplied - homeAdvantage - recordAdj - injuryAdj - weatherAdj));
+
+  const homeEdge = homeConfidence - homeImplied;
+  const awayEdge = awayConfidence - awayImplied;
+
+  const factors: Record<string, unknown> = {
+    home_advantage: homeAdvantage,
+    record_adjustment: recordAdj,
+    injury_impact: injuryAdj,
+    weather_impact: weatherAdj,
+  };
+
+  // Home moneyline
+  const homeReasons: string[] = [];
+  if (homeRec) homeReasons.push(`${event.home_team} is ${homeRec.wins}-${homeRec.losses}`);
+  if (homeAdvantage > 0) homeReasons.push('home field advantage');
+  if (homeInjuries.length > 0) homeReasons.push(`${homeInjuries.length} injuries on roster`);
+  if (awayInjuries.length > 0) homeReasons.push(`opponent has ${awayInjuries.length} injuries`);
+  if (weatherNote) homeReasons.push(weatherNote.trim());
+
+  picks.push({
+    pick_type: 'moneyline',
+    pick_category: 'game',
+    pick_label: `${event.home_team} ML`,
+    confidence: Math.round(homeConfidence * 10) / 10,
+    implied_probability: Math.round(homeImplied * 10) / 10,
+    edge: Math.round(homeEdge * 10) / 10,
+    odds: String(ml.home),
+    reasoning: homeReasons.join('. ') + '.',
+    factors,
+  });
+
+  // Away moneyline
+  const awayReasons: string[] = [];
+  if (awayRec) awayReasons.push(`${event.away_team} is ${awayRec.wins}-${awayRec.losses}`);
+  if (awayInjuries.length === 0) awayReasons.push('healthy roster');
+  if (homeInjuries.length > 0) awayReasons.push(`${event.home_team} has ${homeInjuries.length} injuries`);
+
+  picks.push({
+    pick_type: 'moneyline',
+    pick_category: 'game',
+    pick_label: `${event.away_team} ML`,
+    confidence: Math.round(awayConfidence * 10) / 10,
+    implied_probability: Math.round(awayImplied * 10) / 10,
+    edge: Math.round(awayEdge * 10) / 10,
+    odds: String(ml.away),
+    reasoning: awayReasons.join('. ') + '.',
+    factors,
+  });
+
+  return picks;
 }
 
-export async function analyzeEvent(event: EnrichedEvent, includeProps = false): Promise<AnalyzedPick[]> {
-  const oddsStr = event.odds_data
-    ? JSON.stringify(event.odds_data, null, 2)
-    : 'No odds available';
+function analyzeSpread(event: EnrichedEvent): AnalyzedPick[] {
+  const picks: AnalyzedPick[] = [];
+  const odds = event.odds_data as Record<string, unknown> | null;
+  if (!odds || !event.home_team || !event.away_team) return picks;
 
-  const injuriesStr = event.injuries.length > 0
-    ? event.injuries.map(i => `${i.player} (${i.team}): ${i.status} - ${i.details}`).join('\n')
-    : 'No injury data available';
+  const spread = odds.spread as number | undefined;
+  const details = odds.details as string | undefined;
+  if (spread == null || !details) return picks;
 
-  const [historicalPerf, insiderIntel, externalData] = await Promise.all([
-    getHistoricalPerformance(event.sport),
-    gatherInsiderIntel(event.sport, event.title, event.odds_data).catch(() => null),
-    gatherExternalData(event.sport, event.title, event.venue, event.commence_time).catch(() => ''),
-  ]);
+  const homeRec = parseRecord(event.home_record);
+  const awayRec = parseRecord(event.away_record);
 
-  const intelReport = insiderIntel ? formatIntelForAnalysis(insiderIntel) : 'No insider intelligence available.';
+  // Stronger team covering logic
+  let coverProb = 50;
+  if (homeRec && awayRec) {
+    const diff = homeRec.pct - awayRec.pct;
+    coverProb += diff * 20;
+  }
 
-  const propInstruction = includeProps
-    ? 'Include at least 2 player/team prop picks alongside game picks.'
-    : 'Focus primarily on game-level picks (moneyline, spread, totals). Include 1 prop pick only if you see strong value.';
+  // Key numbers for NFL
+  if (event.sport === 'NFL') {
+    if (Math.abs(spread) === 3) coverProb += spread < 0 ? 2 : -2;
+    if (Math.abs(spread) === 7) coverProb += spread < 0 ? 1.5 : -1.5;
+  }
 
-  const prompt = `You are an elite sports betting analyst with deep expertise in ${event.sport}. Your job is to find the HIGHEST PROBABILITY picks by analyzing every available factor.
+  const impliedProb = 52.4; // standard -110 juice
+  const edge = coverProb - impliedProb;
 
-## Event
-${event.title}
-Date: ${event.commence_time}
-Venue: ${event.venue ?? 'Unknown'}${event.indoor ? ' (Indoor)' : ''}
-Home: ${event.home_team ?? 'N/A'} (Record: ${event.home_record ?? 'N/A'})
-Away: ${event.away_team ?? 'N/A'} (Record: ${event.away_record ?? 'N/A'})
-${event.weather ? `Weather: ${event.weather.condition}, ${event.weather.temperature}°F` : ''}
+  picks.push({
+    pick_type: 'spread',
+    pick_category: 'game',
+    pick_label: details,
+    confidence: Math.round(Math.min(85, Math.max(25, coverProb)) * 10) / 10,
+    implied_probability: impliedProb,
+    edge: Math.round(edge * 10) / 10,
+    odds: '-110',
+    reasoning: `Spread: ${details}. ${homeRec ? `Home team ${homeRec.wins}-${homeRec.losses}` : ''}${awayRec ? `, away ${awayRec.wins}-${awayRec.losses}` : ''}.`,
+    factors: { spread, cover_probability: coverProb },
+  });
 
-## Current Odds
-${oddsStr}
+  return picks;
+}
 
-## Injury Report
-${injuriesStr}
+function analyzeTotals(event: EnrichedEvent): AnalyzedPick[] {
+  const picks: AnalyzedPick[] = [];
+  const odds = event.odds_data as Record<string, unknown> | null;
+  if (!odds) return picks;
 
-## Additional Stats
-${event.stats ? JSON.stringify(event.stats, null, 2) : 'No additional stats available'}
+  const overUnder = odds.overUnder as number | undefined;
+  if (overUnder == null) return picks;
 
-${externalData}
+  let overProb = 50;
+  const reasons: string[] = [`Line set at ${overUnder}`];
 
-${historicalPerf}
+  // Weather adjustments for outdoor sports
+  if (event.weather && !event.indoor) {
+    if (event.weather.condition.toLowerCase().includes('rain')) {
+      overProb -= 5;
+      reasons.push('rain favors under');
+    }
+    if (event.weather.condition.toLowerCase().includes('wind')) {
+      overProb -= 3;
+      reasons.push('wind reduces scoring');
+    }
+    if (event.weather.temperature > 80 && event.sport === 'MLB') {
+      overProb += 3;
+      reasons.push('warm weather boosts offense');
+    }
+    if (event.weather.temperature < 40) {
+      overProb -= 2;
+      reasons.push('cold weather suppresses scoring');
+    }
+  }
 
-${intelReport}
+  if (event.indoor) {
+    overProb += 1;
+    reasons.push('indoor venue — controlled conditions');
+  }
 
-${PROBABILITY_FACTORS}
+  const impliedProb = 52.4;
 
-## Available Pick Types for ${event.sport}
-${PICK_TYPES_BY_SPORT[event.sport]}
+  picks.push({
+    pick_type: 'total',
+    pick_category: 'game',
+    pick_label: `Over ${overUnder}`,
+    confidence: Math.round(Math.min(80, Math.max(25, overProb)) * 10) / 10,
+    implied_probability: impliedProb,
+    edge: Math.round((overProb - impliedProb) * 10) / 10,
+    odds: '-110',
+    reasoning: reasons.join('. ') + '.',
+    factors: { over_under: overUnder, over_probability: overProb },
+  });
 
-## Instructions
-${propInstruction}
+  picks.push({
+    pick_type: 'total',
+    pick_category: 'game',
+    pick_label: `Under ${overUnder}`,
+    confidence: Math.round(Math.min(80, Math.max(25, 100 - overProb)) * 10) / 10,
+    implied_probability: impliedProb,
+    edge: Math.round(((100 - overProb) - impliedProb) * 10) / 10,
+    odds: '-110',
+    reasoning: reasons.join('. ') + '.',
+    factors: { over_under: overUnder, under_probability: 100 - overProb },
+  });
 
-Generate 4-8 picks for this event. For EACH pick, you must calculate:
-- pick_type: market type (moneyline, spread, total, method_of_victory, player_strikeouts_ou, etc.)
-- pick_category: one of "game", "player_prop", "team_prop", "method", "round", "inning"
-- pick_label: the specific pick (e.g., "Chiefs -3.5", "Over 45.5", "Mahomes 280+ passing yards")
-- confidence: 0-100 score. This MUST reflect true probability, not optimism. Be brutally honest. A -300 favorite is ~75%, not 90%.
-- implied_probability: the implied probability from the odds (e.g., -150 = 60.0)
-- edge: your confidence minus implied_probability. Positive = value bet. This is the most important number.
-- odds: American odds (e.g., "-110", "+150")
-- reasoning: 2-3 sentences with specific stats and data points
-- factors: object with key factors and their impact (e.g., {"home_advantage": 3.2, "injury_impact": -5.0, "recent_form": 8.5, "matchup_edge": 4.0})
+  return picks;
+}
 
-CRITICAL: Your confidence scores must be CALIBRATED. If you say 80% confidence, that pick should win ~80% of the time. Study the historical performance data above and adjust. If past 75% confidence picks only won 60%, recalibrate downward.
+// --- Main analysis ---
 
-Respond with ONLY a valid JSON array. No markdown fences, no explanation outside the JSON.`;
+export async function analyzeEvent(event: EnrichedEvent, _includeProps = false): Promise<AnalyzedPick[]> {
+  const allPicks: AnalyzedPick[] = [];
 
-  const text = await generateJSON(prompt, 4000);
-  const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  const picks: AnalyzedPick[] = JSON.parse(cleaned);
+  allPicks.push(...analyzeMoneyline(event));
+  allPicks.push(...analyzeSpread(event));
+  allPicks.push(...analyzeTotals(event));
 
-  for (const pick of picks) {
+  // Store in DB
+  for (const pick of allPicks) {
     const id = crypto.randomUUID();
     await sql`
       insert into picks (id, event_id, sport, pick_type, pick_category, pick_label,
@@ -193,7 +286,7 @@ Respond with ONLY a valid JSON array. No markdown fences, no explanation outside
     `;
   }
 
-  return picks;
+  return allPicks;
 }
 
 export async function getPicksForEvent(eventId: string) {
@@ -228,30 +321,12 @@ export async function getTopPicks(sport?: Sport, category?: string, limit = 30) 
   `;
 }
 
-const STRATEGY_RULES: Record<Strategy, string> = {
-  safe: `SAFE STRATEGY:
-- Only use picks with confidence >= 70 and positive edge
-- Prefer moneylines and spreads over props
-- Max 3-4 legs to keep combined probability high
-- Target combined implied probability > 15%
-- Avoid correlated legs from the same game
-- Prioritize favorites with strong edges`,
+// --- Parlay builder (pure algorithm) ---
 
-  balanced: `BALANCED STRATEGY:
-- Use picks with confidence >= 55 and positive or near-zero edge
-- Mix game picks with 1-2 props if they have value
-- 3-5 legs for decent odds with reasonable hit probability
-- Target combined implied probability > 5%
-- Can include slight underdogs if edge is strong
-- Balance risk across different events`,
-
-  aggressive: `AGGRESSIVE STRATEGY:
-- Include some lower confidence picks (45+) with high odds for big payouts
-- Props and method/round picks encouraged for odds boost
-- 4-6 legs, targeting higher combined odds (+800 or better)
-- At least 2 legs must have confidence > 60 as anchors
-- Seek value in plus-money picks where edge is positive
-- Acceptable to take correlated legs if correlation works in your favor`,
+const STRATEGY_CONFIG: Record<Strategy, { minConfidence: number; minEdge: number; maxLegs: number; preferFavorites: boolean }> = {
+  safe: { minConfidence: 65, minEdge: 0, maxLegs: 4, preferFavorites: true },
+  balanced: { minConfidence: 50, minEdge: -3, maxLegs: 6, preferFavorites: false },
+  aggressive: { minConfidence: 35, minEdge: -10, maxLegs: 8, preferFavorites: false },
 };
 
 export async function generateParlay(
@@ -260,90 +335,101 @@ export async function generateParlay(
   strategy: Strategy = 'balanced',
   includeProps = false
 ) {
-  let picks = await getTopPicks(sport, undefined, 40);
+  let picks = await getTopPicks(sport, undefined, 60);
 
   if (picks.length < legCount) {
     const sportsToAnalyze = sport ? [sport] : SPORTS;
-    const errors: string[] = [];
     for (const s of sportsToAnalyze) {
-      try {
-        const events = await syncEvents(s);
-        for (const event of events.slice(0, 4)) {
-          try {
-            await analyzeEvent(event, includeProps);
-          } catch (e: unknown) {
-            errors.push(`analyzeEvent(${event.title}): ${e instanceof Error ? e.message : String(e)}`);
-          }
-        }
-      } catch (e: unknown) {
-        errors.push(`syncEvents(${s}): ${e instanceof Error ? e.message : String(e)}`);
+      const events = await syncEvents(s);
+      for (const event of events.slice(0, 6)) {
+        await analyzeEvent(event, includeProps).catch(() => []);
       }
     }
-    picks = await getTopPicks(sport, undefined, 40);
+    picks = await getTopPicks(sport, undefined, 60);
+  }
 
-    if (picks.length < legCount) {
-      const errDetail = errors.length > 0 ? ` Errors: ${errors.join('; ')}` : '';
-      throw new Error(`Not enough picks (found ${picks.length}, need ${legCount}).${errDetail}`);
+  if (picks.length < legCount) {
+    throw new Error(`Not enough picks available (found ${picks.length}, need ${legCount}). No upcoming events with odds data for ${sport ?? 'any sport'}.`);
+  }
+
+  const config = STRATEGY_CONFIG[strategy];
+
+  // Filter picks by strategy thresholds
+  let eligible = picks.filter((p: Record<string, unknown>) => {
+    const conf = p.confidence as number;
+    const edge = p.edge as number;
+    return conf >= config.minConfidence && edge >= config.minEdge;
+  });
+
+  if (eligible.length < legCount) {
+    eligible = picks.slice(0, Math.max(legCount * 3, 20));
+  }
+
+  // Score and rank picks
+  const scored = eligible.map((p: Record<string, unknown>) => {
+    const conf = p.confidence as number;
+    const edge = p.edge as number;
+    let score = conf * 0.6 + Math.max(0, edge) * 4;
+    if (config.preferFavorites && conf > 60) score += 10;
+    if (!config.preferFavorites && edge > 3) score += 15;
+    return { pick: p, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // Select legs — avoid duplicate events
+  const selected: Array<Record<string, unknown>> = [];
+  const usedEvents = new Set<string>();
+
+  for (const { pick } of scored) {
+    if (selected.length >= legCount) break;
+    const eventId = pick.event_id as string;
+    if (usedEvents.has(eventId)) continue;
+    selected.push(pick);
+    usedEvents.add(eventId);
+  }
+
+  if (selected.length < legCount) {
+    for (const { pick } of scored) {
+      if (selected.length >= legCount) break;
+      if (selected.includes(pick)) continue;
+      selected.push(pick);
     }
   }
 
-  const historicalPerf = await getHistoricalPerformance(sport);
+  // Calculate combined stats
+  const confidences = selected.map(p => p.confidence as number);
+  const confidenceAvg = confidences.reduce((a, b) => a + b, 0) / confidences.length;
 
-  const propRule = includeProps
-    ? 'You MUST include at least 1 player or team prop pick in the parlay.'
-    : 'Props are optional — include only if the edge is strong.';
+  const impliedProbs = selected.map(p => (p.implied_probability as number) / 100);
+  const combinedImplied = impliedProbs.reduce((a, b) => a * b, 1) * 100;
 
-  const prompt = `You are a parlay optimization expert. Build the best ${legCount}-leg parlay using the ${strategy.toUpperCase()} strategy.
+  const combinedOdds = impliedToAmerican(combinedImplied);
 
-${STRATEGY_RULES[strategy]}
+  const pickIds = selected.map(p => p.id as string);
+  const labels = selected.map(p => `${p.pick_label} (${p.odds})`).join(', ');
 
-${propRule}
-
-## Available Picks
-${JSON.stringify(picks, null, 2)}
-
-${historicalPerf}
-
-## Rules
-1. Select exactly ${legCount} legs
-2. Follow the ${strategy} strategy rules above
-3. Calculate combined implied probability by multiplying individual probabilities
-4. Factor in the historical performance data — avoid pick types with poor track records
-5. Consider correlation between legs (same game, same team, same player)
-6. Every pick MUST have a clear reasoning for inclusion
-
-Respond with ONLY a valid JSON object:
-{
-  "pick_ids": ["id1", "id2", ...],
-  "combined_odds": "+450",
-  "combined_implied_prob": 12.5,
-  "confidence_avg": 72.5,
-  "reasoning": "2-3 sentences on why these legs work together and the strategy behind it"
-}`;
-
-  const text = await generateJSON(prompt, 1500);
-  const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  const parlay = JSON.parse(cleaned);
-
-  const selectedPicks = picks.filter((p: Record<string, unknown>) =>
-    parlay.pick_ids.includes(p.id)
-  );
+  const reasoning = `${strategy.charAt(0).toUpperCase() + strategy.slice(1)} ${legCount}-leg parlay across ${usedEvents.size} events. ${
+    strategy === 'safe' ? 'Focused on high-confidence favorites with positive edge.' :
+    strategy === 'balanced' ? 'Mixed value picks balancing confidence and edge.' :
+    'Higher-risk picks targeting plus-money value.'
+  } Legs: ${labels}.`;
 
   const id = crypto.randomUUID();
   await sql`
     insert into generated_parlays (id, strategy, sport_filter, pick_ids, pick_details,
                                    combined_odds, combined_implied_prob, confidence_avg,
                                    reasoning, result)
-    values (${id}, ${strategy}, ${sport ?? null}, ${parlay.pick_ids},
-            ${JSON.stringify(selectedPicks)}, ${parlay.combined_odds},
-            ${parlay.combined_implied_prob}, ${parlay.confidence_avg},
-            ${parlay.reasoning}, 'pending')
+    values (${id}, ${strategy}, ${sport ?? null}, ${pickIds},
+            ${JSON.stringify(selected)}, ${combinedOdds},
+            ${combinedImplied}, ${confidenceAvg},
+            ${reasoning}, 'pending')
   `;
 
-  return { id, strategy, ...parlay, picks: selectedPicks };
+  return { id, strategy, pick_ids: pickIds, combined_odds: combinedOdds, combined_implied_prob: combinedImplied, confidence_avg: confidenceAvg, reasoning, picks: selected };
 }
 
-// --- Win/Loss Tracking & Learning ---
+// --- Win/Loss Tracking ---
 
 export async function settleParlay(
   parlayId: string,
@@ -365,8 +451,8 @@ export async function settleParlay(
   const parlay = (await sql`select * from generated_parlays where id = ${parlayId}`)[0];
   if (!parlay) return;
 
-  const pickIds: string[] = parlay.pick_ids;
-  for (const pickId of pickIds) {
+  const pickIdsArr: string[] = parlay.pick_ids;
+  for (const pickId of pickIdsArr) {
     const pickResult = legResults[pickId];
     if (!pickResult) continue;
 
@@ -380,66 +466,6 @@ export async function settleParlay(
       values (${perfId}, ${pickId}, ${parlayId}, ${pick.sport}, ${pick.pick_type},
               ${pick.pick_category}, ${parlay.strategy}, ${pick.confidence},
               ${pick.odds}, ${pickResult})
-    `;
-  }
-
-  await updateLearningInsights();
-}
-
-export async function updateLearningInsights() {
-  const stats = await sql`
-    select sport, pick_type, pick_category,
-           count(*)::int as total,
-           count(*) filter (where result = 'win')::int as wins,
-           round(100.0 * count(*) filter (where result = 'win') / nullif(count(*), 0), 1) as win_rate,
-           round(avg(confidence_at_pick), 1) as avg_confidence
-    from performance_log
-    group by sport, pick_type, pick_category
-    having count(*) >= 3
-    order by sport, pick_type
-  `;
-
-  if (stats.length === 0) return;
-
-  const prompt = `You are analyzing sports betting performance data to extract learning insights. Study this data and provide calibration adjustments.
-
-## Performance Data
-${JSON.stringify(stats, null, 2)}
-
-For each row with sufficient data (5+ bets), generate an insight:
-- If win_rate significantly differs from avg_confidence, note the miscalibration
-- Identify which pick types are most/least profitable
-- Note any patterns (e.g., "UFC method picks overperform at lower confidence levels")
-- Provide a concrete recommendation for future picks
-
-Respond with ONLY a valid JSON array:
-[{
-  "sport": "UFC",
-  "pick_type": "moneyline",
-  "pick_category": "game",
-  "insight": "Moneyline picks are well-calibrated...",
-  "sample_size": 25,
-  "win_rate": 68.0,
-  "avg_confidence": 65.2,
-  "avg_edge": 3.1,
-  "recommendation": "Continue using current confidence levels for moneyline picks"
-}]
-
-Only include entries with sample_size >= 5. If not enough data, return an empty array [].`;
-
-  const text = await generateJSON(prompt, 2000);
-  const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  const insights = JSON.parse(cleaned);
-
-  for (const ins of insights) {
-    const id = crypto.randomUUID();
-    await sql`
-      insert into learning_insights (id, sport, pick_type, pick_category, insight,
-                                     sample_size, win_rate, avg_confidence, avg_edge, recommendation)
-      values (${id}, ${ins.sport}, ${ins.pick_type}, ${ins.pick_category}, ${ins.insight},
-              ${ins.sample_size}, ${ins.win_rate}, ${ins.avg_confidence}, ${ins.avg_edge ?? null},
-              ${ins.recommendation})
-      on conflict (id) do nothing
     `;
   }
 }
@@ -473,11 +499,7 @@ export async function getPerformanceStats(sport?: Sport) {
     order by sport, pick_type, result
   `;
 
-  const insights = await sql`
-    select * from learning_insights order by updated_at desc limit 20
-  `;
-
-  return { overall, byStrategy, byPickType, insights };
+  return { overall, byStrategy, byPickType, insights: [] };
 }
 
 export async function getParlayHistory(limit = 50) {
