@@ -21,6 +21,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     : 'balanced';
   const props = includeProps === true;
 
-  const parlay = await generateParlay(sportFilter, legCount, strat, props);
-  res.json({ parlay });
+  try {
+    const parlay = await generateParlay(sportFilter, legCount, strat, props);
+    res.json({ parlay });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Failed to generate parlay';
+    res.status(500).json({ error: msg });
+  }
 }

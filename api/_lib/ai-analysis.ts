@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { sql } from './db.js';
-import type { EnrichedEvent, Sport } from './sports-data.js';
+import { syncEvents, type EnrichedEvent, type Sport, SPORTS } from './sports-data.js';
 import { gatherInsiderIntel, formatIntelForAnalysis } from './insider-intel.js';
 import { gatherExternalData } from './external-data.js';
 
@@ -257,7 +257,23 @@ export async function generateParlay(
   strategy: Strategy = 'balanced',
   includeProps = false
 ) {
-  const picks = await getTopPicks(sport, undefined, 40);
+  let picks = await getTopPicks(sport, undefined, 40);
+
+  if (picks.length < legCount) {
+    const sportsToAnalyze = sport ? [sport] : SPORTS;
+    for (const s of sportsToAnalyze) {
+      const events = await syncEvents(s);
+      for (const event of events.slice(0, 4)) {
+        await analyzeEvent(event, includeProps).catch(() => []);
+      }
+    }
+    picks = await getTopPicks(sport, undefined, 40);
+  }
+
+  if (picks.length < legCount) {
+    throw new Error(`Not enough picks available. Found ${picks.length}, need ${legCount}. There may be no upcoming events for this sport.`);
+  }
+
   const historicalPerf = await getHistoricalPerformance(sport);
 
   const propRule = includeProps

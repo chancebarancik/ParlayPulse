@@ -67,8 +67,8 @@ export function useParlayBuilder() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sport, legs, strategy, includeProps }),
       });
-      if (!res.ok) throw new Error('Failed to generate parlay');
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to generate parlay');
       setParlay(data.parlay);
       return data.parlay;
     } catch (e: unknown) {
