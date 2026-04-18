@@ -15,6 +15,7 @@ export function Dashboard() {
   const { events } = useEvents(sportFilter ?? undefined);
   const { news, loading: newsLoading } = useNews(sportFilter ?? undefined);
   const [selectedPicks, setSelectedPicks] = useState<Pick[]>([]);
+  const [picksOpen, setPicksOpen] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
 
@@ -43,16 +44,35 @@ export function Dashboard() {
       />
 
       {picks.length > 0 && (
-        <div className="space-y-1">
-          <h2 className="text-sm font-semibold text-dk-text mb-2">ParlayPulse Picks</h2>
-          {picks.map(pick => (
-            <PickCard
-              key={pick.id}
-              pick={pick}
-              selected={selectedPicks.some(p => p.id === pick.id)}
-              onToggle={togglePick}
-            />
-          ))}
+        <div className="rounded-lg bg-dk-surface border border-dk-border/50 overflow-hidden">
+          <button
+            onClick={() => setPicksOpen(prev => !prev)}
+            className="flex items-center gap-2 w-full text-left px-4 py-3"
+          >
+            <svg
+              width="8"
+              height="8"
+              viewBox="0 0 8 8"
+              fill="none"
+              className={`text-dk-textMuted transition-transform ${picksOpen ? 'rotate-90' : ''}`}
+            >
+              <path d="M2 1l4 3-4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="text-[12px] font-semibold text-dk-text">ParlayPulse Picks</span>
+            <span className="text-[10px] text-dk-textMuted ml-auto">{picks.length}</span>
+          </button>
+          {picksOpen && (
+            <div className="px-3 pb-3 space-y-1">
+              {picks.map(pick => (
+                <PickCard
+                  key={pick.id}
+                  pick={pick}
+                  selected={selectedPicks.some(p => p.id === pick.id)}
+                  onToggle={togglePick}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
