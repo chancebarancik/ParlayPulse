@@ -1,18 +1,18 @@
 import type { Pick } from '../lib/types';
 
-function confidenceBg(c: number) {
-  if (c >= 70) return 'bg-dk-green/15 text-dk-green border-dk-green/30';
-  if (c >= 50) return 'bg-dk-orange/15 text-dk-orange border-dk-orange/30';
-  return 'bg-dk-red/15 text-dk-red border-dk-red/30';
+function confidenceColor(c: number) {
+  if (c >= 70) return 'text-dk-green';
+  if (c >= 50) return 'text-dk-orange';
+  return 'text-dk-red';
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
-  game: 'GAME',
-  player_prop: 'PLAYER',
-  team_prop: 'TEAM',
-  method: 'METHOD',
-  round: 'ROUND',
-  inning: 'INNING',
+  game: 'Game',
+  player_prop: 'Player',
+  team_prop: 'Team',
+  method: 'Method',
+  round: 'Round',
+  inning: 'Inning',
 };
 
 interface PickCardProps {
@@ -25,43 +25,39 @@ export function PickCard({ pick, selected, onToggle }: PickCardProps) {
   return (
     <button
       onClick={() => onToggle?.(pick)}
-      className={`w-full text-left p-3 rounded-lg border transition-all ${
+      className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
         selected
-          ? 'border-dk-green bg-dk-green/10'
-          : 'border-dk-border bg-dk-card hover:bg-dk-cardHover hover:border-dk-green/40'
+          ? 'border-dk-green/40 bg-dk-greenMuted'
+          : 'border-transparent bg-dk-card hover:bg-dk-cardHover'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[10px] font-bold text-dk-green uppercase tracking-wider">
-              {pick.sport}
-            </span>
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-dk-surface text-dk-textMuted uppercase">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11px] text-dk-green font-medium">{pick.sport}</span>
+            <span className="text-[11px] text-dk-textMuted">
               {CATEGORY_LABELS[pick.pick_category] ?? pick.pick_category}
             </span>
-            <span className="text-[10px] text-dk-textMuted">{pick.pick_type}</span>
+            <span className="text-[11px] text-dk-textMuted">{pick.pick_type}</span>
           </div>
-          <p className="font-bold text-white text-sm">{pick.pick_label}</p>
+          <p className="font-medium text-dk-text text-[13px] leading-snug">{pick.pick_label}</p>
           {pick.event_title && (
-            <p className="text-xs text-dk-textMuted mt-0.5">{pick.event_title}</p>
+            <p className="text-[11px] text-dk-textMuted mt-0.5">{pick.event_title}</p>
           )}
-          <p className="text-xs text-dk-textSecondary mt-1.5 line-clamp-2">{pick.reasoning}</p>
+          <p className="text-[12px] text-dk-textSecondary mt-1.5 line-clamp-2 leading-relaxed">{pick.reasoning}</p>
         </div>
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
+        <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
           {pick.odds && (
-            <span className="text-base font-mono font-bold text-white bg-dk-surface px-2.5 py-1 rounded-lg">
-              {pick.odds}
-            </span>
+            <span className="text-sm font-mono font-semibold text-dk-text">{pick.odds}</span>
           )}
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${confidenceBg(pick.confidence)}`}>
+          <span className={`text-[11px] font-mono ${confidenceColor(pick.confidence)}`}>
             {pick.confidence.toFixed(0)}%
           </span>
           {pick.edge != null && (
-            <span className={`text-[10px] font-mono font-semibold ${
+            <span className={`text-[11px] font-mono ${
               pick.edge > 0 ? 'text-dk-green' : pick.edge < -3 ? 'text-dk-red' : 'text-dk-textMuted'
             }`}>
-              {pick.edge > 0 ? '+' : ''}{pick.edge.toFixed(1)}% edge
+              {pick.edge > 0 ? '+' : ''}{pick.edge.toFixed(1)}%
             </span>
           )}
         </div>

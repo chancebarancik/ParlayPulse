@@ -3,15 +3,19 @@
 @tailwind utilities;
 
 @layer base {
-  html,
-  body {
+  html, body {
     @apply bg-dk-bg text-dk-text antialiased;
     -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  * {
+    @apply border-dk-border;
   }
 }
 
 @layer components {
   .input {
-    @apply w-full px-3 py-2 border border-dk-border rounded-lg text-sm bg-dk-surface text-dk-text outline-none focus:border-dk-green;
+    @apply w-full px-3 py-2 border rounded-lg text-sm bg-dk-surface text-dk-text outline-none focus:border-dk-green/50 transition-colors;
   }
 }

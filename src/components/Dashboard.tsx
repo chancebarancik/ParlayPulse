@@ -43,23 +43,23 @@ export function Dashboard() {
             type="checkbox"
             checked={includeProps}
             onChange={e => setIncludeProps(e.target.checked)}
-            className="rounded border-dk-border text-dk-green bg-dk-card w-3.5 h-3.5"
+            className="rounded border-dk-border text-dk-green bg-dk-card w-3 h-3"
           />
-          <span className="text-xs text-dk-textSecondary">Include Props in Analysis</span>
+          <span className="text-[11px] text-dk-textMuted">Include props</span>
         </label>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <h2 className="font-bold text-white">AI Picks</h2>
-            <div className="flex gap-2">
+            <h2 className="text-sm font-semibold text-dk-text">AI Picks</h2>
+            <div className="flex gap-1.5">
               {(['UFC', 'MLB', 'NFL'] as Sport[]).map(s => (
                 <button
                   key={s}
                   onClick={() => handleAnalyze(s)}
                   disabled={analyzing}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-dk-green text-white font-bold uppercase tracking-wide hover:bg-dk-greenLight disabled:opacity-50 transition-colors"
+                  className="text-[11px] px-3 py-1.5 rounded-md bg-dk-card text-dk-textSecondary font-medium hover:bg-dk-cardHover hover:text-dk-text disabled:opacity-40 transition-all"
                 >
                   {analyzing ? '...' : `Analyze ${s}`}
                 </button>
@@ -68,16 +68,16 @@ export function Dashboard() {
           </div>
 
           {picksLoading && picks.length === 0 ? (
-            <div className="text-center py-12 text-dk-textMuted text-sm">Loading picks...</div>
+            <div className="text-center py-16 text-dk-textMuted text-[12px]">Loading picks...</div>
           ) : picks.length === 0 ? (
-            <div className="text-center py-12 bg-dk-surface rounded-xl border border-dk-border">
-              <p className="text-dk-textSecondary text-sm mb-2">No picks yet</p>
-              <p className="text-dk-textMuted text-xs">
-                Click "Analyze" for a sport to generate AI picks from live data
+            <div className="text-center py-16">
+              <p className="text-dk-textSecondary text-[13px] mb-1">No picks yet</p>
+              <p className="text-dk-textMuted text-[11px]">
+                Analyze a sport to generate AI picks from live data
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {picks.map(pick => (
                 <PickCard
                   key={pick.id}
@@ -90,14 +90,14 @@ export function Dashboard() {
           )}
 
           {events.length > 0 && (
-            <>
-              <h2 className="font-bold text-white mt-6">Upcoming Events</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="pt-2">
+              <h2 className="text-sm font-semibold text-dk-text mb-3">Upcoming Events</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {events.slice(0, 10).map(event => (
                   <EventCard key={event.id} event={event} />
                 ))}
               </div>
-            </>
+            </div>
           )}
         </div>
 

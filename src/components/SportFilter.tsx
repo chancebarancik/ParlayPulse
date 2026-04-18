@@ -6,36 +6,30 @@ interface SportFilterProps {
   onChange: (sport: Sport | null) => void;
 }
 
-const SPORT_LABELS: Record<Sport, string> = {
-  UFC: 'UFC',
-  MLB: 'MLB',
-  NFL: 'NFL',
-};
-
 export function SportFilter({ active, onChange }: SportFilterProps) {
   return (
-    <div className="flex gap-1.5">
+    <div className="flex gap-1">
       <button
         onClick={() => onChange(null)}
-        className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
+        className={`px-3.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${
           active === null
-            ? 'bg-dk-green text-white'
-            : 'bg-dk-card text-dk-textSecondary hover:bg-dk-cardHover hover:text-white'
+            ? 'bg-dk-green/10 text-dk-green'
+            : 'text-dk-textMuted hover:text-dk-textSecondary'
         }`}
       >
-        All Sports
+        All
       </button>
       {SPORTS.map(sport => (
         <button
           key={sport}
           onClick={() => onChange(sport)}
-          className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide transition-all ${
+          className={`px-3.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${
             active === sport
-              ? 'bg-dk-green text-white'
-              : 'bg-dk-card text-dk-textSecondary hover:bg-dk-cardHover hover:text-white'
+              ? 'bg-dk-green/10 text-dk-green'
+              : 'text-dk-textMuted hover:text-dk-textSecondary'
           }`}
         >
-          {SPORT_LABELS[sport]}
+          {sport}
         </button>
       ))}
     </div>
